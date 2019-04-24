@@ -17,10 +17,11 @@ import (
 	"time"
 )
 
+//go:generate go-bindata-assetfs static/...
 var (
 	hostname string
 	port     int
-	filename     string
+	filename string
 )
 
 /* register command line options */
@@ -215,7 +216,7 @@ func main() {
 	var addr = fmt.Sprintf("%s:%d", hostname, port)
 	log.Println("service listening on", addr)
 
-	fs := http.FileServer(http.Dir("static"))
+	fs := http.FileServer(assetFS())
 	http.Handle("/", fs)
 
 	// Start the server and listen forever on port 8000.

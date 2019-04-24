@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"testing"
 	"time"
 )
 
-func main() {
+func TestWrite(t *testing.T) {
 	outputFile, outputError := os.OpenFile("log.log", os.O_WRONLY|os.O_CREATE, 0666)
 	if outputError != nil {
 		fmt.Printf("An error occurred with file opening or creation\n")
