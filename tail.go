@@ -12,6 +12,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/hpcloud/tail"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 	"log"
 	"net/http"
 	"time"
@@ -22,6 +24,7 @@ var (
 	hostname string
 	port     int
 	filename string
+	gbk      bool
 )
 
 /* register command line options */
@@ -29,6 +32,7 @@ func init() {
 	flag.StringVar(&hostname, "hostname", "0.0.0.0", "The hostname or IP on which the REST server will listen")
 	flag.IntVar(&port, "port", 8080, "The port on which the REST server will listen")
 	flag.StringVar(&filename, "filename", "log.log", "log filename")
+	flag.BoolVar(&gbk, "gbk", false, "log file encoded use GBK")
 }
 
 // A single Broker will be created in this program. It is responsible
@@ -36,7 +40,6 @@ func init() {
 // and broadcasting events (messages) to those clients.
 //
 type Broker struct {
-
 	// Create a map of clients, the keys of the map are the channels
 	// over which we can push messages to attached clients.  (The values
 	// are just booleans and are meaningless.)
@@ -203,7 +206,13 @@ func main() {
 		}
 		for {
 			if msg, ok := <-tails.Lines; ok {
-				b.messages <- msg.Text
+				s := msg.Text
+				if gbk {
+					if result, _, err := transform.String(simplifiedchinese.GBK.NewDecoder(), s); err == nil {
+						s = result
+					}
+				}
+				b.messages <- s
 			} else {
 				fmt.Printf("tail file close reopen, filename:%s\n", tails.Filename)
 				time.Sleep(100 * time.Millisecond)
