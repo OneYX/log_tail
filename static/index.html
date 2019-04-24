@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real-time log monitoring</title>
+</head>
+<style>
+    *, :after, :before {
+        margin: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        background: #35495e;
+    }
+
+    .titlebar {
+        background: #3e566e;
+        height: 40px;
+        border: 1px solid rgba(20, 25, 31, .5);
+    }
+
+    .title {
+        font-family: Quicksand, Source Sans Pro, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif;
+        display: block;
+        font-weight: 300;
+        font-size: 18px;
+        color: #fff;
+        letter-spacing: 1px;
+        padding: 8px 16px;
+    }
+
+    .container {
+        height: calc(100vh - 40px);
+        display: flex;
+        padding: 6px;
+    }
+
+    #console {
+        color: #0e0;
+        /*background-color: hsl(40, 2%, 19%);*/
+        width: calc(100vw - 12px);
+        border: 1px solid #73888c;
+        font: 12px/normal 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+        padding: 5px 10px;
+        overflow: auto;
+    }
+
+    input[type=checkbox] {
+        -webkit-appearance: none;
+        appearance: none;
+        outline: none;
+        width: 12px;
+        height: 12px;
+        vertical-align: center;
+        background: #fff;
+        border: 1px solid #ccc;
+        position: relative;
+    }
+
+    input[type=checkbox]:checked::after {
+        content: "\2713";
+        display: block;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        line-height: 10px;
+        border: 1px solid #ddd;
+        color: red;
+        font-size: 12px;
+    }
+
+    .toolbar {
+        position: absolute;
+        right: 6px;
+    }
+
+    .clearBtn {
+        color: #fff;
+        border: none;
+        outline:none;
+        background: #3e566e;
+    }
+</style>
+<body>
+<div>
+    <header class="titlebar">
+        <div class="title">
+            <span>Real-time log monitoring</span>
+            <span class="toolbar">
+                <label><input id="roll" type="checkbox" checked>go</label>
+                <button class="clearBtn" onclick="javascript: document.getElementById('console').innerHTML=''">clear</button>
+            </span>
+        </div>
+    </header>
+    <section class="container">
+        <div id="console">
+        </div>
+    </section>
+</div>
+<script type="text/javascript">
+    // Create a new HTML5 EventSource
+    var source = new EventSource('/events/');
+    // Create a callback for when a new message is received.
+    source.onmessage = function (e) {
+        // Append the `data` attribute of the message to the DOM.
+        var console = document.getElementById('console');
+        console.innerHTML += '<p>' + e.data + '</p>';
+        var roll = document.getElementById('roll');
+        if (roll.checked) {
+            console.scrollTop = console.scrollHeight
+        }
+    };
+</script>
+</body>
+</html>
