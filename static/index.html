@@ -78,8 +78,14 @@
     .clearBtn {
         color: #fff;
         border: none;
-        outline:none;
+        outline: none;
         background: #3e566e;
+    }
+
+    a {
+        color: #fff;
+        text-decoration: none;
+        font-size: 16px;
     }
 </style>
 <body>
@@ -89,7 +95,9 @@
             <span>Real-time log monitoring</span>
             <span class="toolbar">
                 <label><input id="roll" type="checkbox" checked>go</label>
-                <button class="clearBtn" onclick="javascript: document.getElementById('console').innerHTML=''">clear</button>
+                <button class="clearBtn"
+                        onclick="javascript: document.getElementById('console').innerHTML=''">clear</button>
+                <a href="history" target="_blank">history</a>
             </span>
         </div>
     </header>

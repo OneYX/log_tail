@@ -9,13 +9,16 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"github.com/hpcloud/tail"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -101,7 +104,6 @@ func (b *Broker) Start() {
 				for s := range b.clients {
 					s <- msg
 				}
-				log.Printf("Broadcast message to %d clients", len(b.clients))
 			}
 		}
 	}()
@@ -168,6 +170,25 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println("Finished HTTP request at ", r.URL.Path)
 }
 
+func handleHistory(w http.ResponseWriter, r *http.Request) {
+	file, err := os.Open(filename)
+	if err != nil {
+		fmt.Fprint(w, "An error occurred on opening the inputfile\n"+
+			"Does the file exist?\n"+
+			"Have you got acces to it?\n")
+	}
+	defer file.Close()
+	var reader io.Reader
+	if gbk {
+		reader = transform.NewReader(file, simplifiedchinese.GBK.NewDecoder())
+	} else {
+		reader = bufio.NewReader(file)
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("content-disposition", "attachment; filename=\""+filename+"\"")
+	io.Copy(w, reader)
+}
+
 // Main routine
 //
 func main() {
@@ -227,6 +248,8 @@ func main() {
 
 	fs := http.FileServer(assetFS())
 	http.Handle("/", fs)
+
+	http.HandleFunc("/history", handleHistory)
 
 	// Start the server and listen forever on port 8000.
 	http.ListenAndServe(addr, nil)
