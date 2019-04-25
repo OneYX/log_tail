@@ -10,9 +10,11 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"github.com/hpcloud/tail"
+	"github.com/kardianos/service"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"io"
@@ -32,10 +34,13 @@ var (
 
 /* register command line options */
 func init() {
-	flag.StringVar(&hostname, "hostname", "0.0.0.0", "The hostname or IP on which the REST server will listen")
-	flag.IntVar(&port, "port", 8080, "The port on which the REST server will listen")
-	flag.StringVar(&filename, "filename", "log.log", "log filename")
+	flag.StringVar(&hostname, "h", "0.0.0.0", "The hostname or IP on which the server will listen")
+	flag.IntVar(&port, "p", 8080, "The port on which the server will listen")
+	flag.StringVar(&filename, "f", "log.log", "log filename")
 	flag.BoolVar(&gbk, "gbk", false, "log file encoded use GBK")
+	if filename == "log.log" && os.Getenv("LOG_FILE") != "" {
+		filename = os.Getenv("LOG_FILE")
+	}
 }
 
 // A single Broker will be created in this program. It is responsible
@@ -173,9 +178,10 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func handleHistory(w http.ResponseWriter, r *http.Request) {
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Fprint(w, "An error occurred on opening the inputfile\n"+
+		fmt.Fprintf(w, "An error occurred on opening the %s\n"+
 			"Does the file exist?\n"+
-			"Have you got acces to it?\n")
+			"Have you got acces to it?\n"+
+			"%s", filename, err.Error())
 	}
 	defer file.Close()
 	var reader io.Reader
@@ -189,10 +195,19 @@ func handleHistory(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, reader)
 }
 
-// Main routine
-//
-func main() {
+var logger service.Logger
 
+type program struct {
+	httpServer *http.Server
+}
+
+func (p *program) Start(s service.Service) error {
+	go p.run()
+	return nil
+}
+
+func (p *program) run() {
+	// 运行逻辑
 	// Make a new Broker instance
 	b := &Broker{
 		make(map[chan string]bool),
@@ -242,7 +257,6 @@ func main() {
 		}
 	}()
 
-	flag.Parse()
 	var addr = fmt.Sprintf("%s:%d", hostname, port)
 	log.Println("service listening on", addr)
 
@@ -252,5 +266,89 @@ func main() {
 	http.HandleFunc("/history", handleHistory)
 
 	// Start the server and listen forever on port 8000.
-	http.ListenAndServe(addr, nil)
+	p.httpServer = &http.Server{Addr: addr, Handler: nil}
+	p.httpServer.ListenAndServe()
+}
+
+func (p *program) Stop(s service.Service) error {
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	return p.httpServer.Shutdown(ctx)
+}
+
+func main() {
+	svcConfig := &service.Config{
+		Name:        "LogMonitoring",
+		DisplayName: "Log Monitoring",
+		Description: "Real-time log monitoring",
+	}
+
+	prg := &program{}
+	s, err := service.New(prg, svcConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	logger, err = s.Logger(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	args := os.Args
+	if len(args) <= 1 {
+		if err = s.Run(); err != nil {
+			logger.Error(err)
+		}
+		return
+	}
+	switch os.Args[1] {
+	case "install":
+		if err := s.Install(); err != nil {
+			logger.Error(err)
+		} else {
+			logger.Info("install success!")
+		}
+	case "start":
+		if err := s.Start(); err != nil {
+			logger.Error(err)
+		} else {
+			logger.Info("start success!")
+		}
+	case "stop":
+		if err := s.Stop(); err != nil {
+			logger.Error(err)
+		} else {
+			logger.Info("stop success!")
+		}
+	case "restart":
+		if err := s.Restart(); err != nil {
+			logger.Error(err)
+		} else {
+			logger.Info("restart success!")
+		}
+	case "uninstall":
+		if err := s.Uninstall(); err != nil {
+			logger.Error(err)
+		} else {
+			logger.Info("uninstall success!")
+		}
+	default:
+		flag.Usage = usage
+		flag.Parse()
+		err = s.Run()
+		if err != nil {
+			logger.Error(err)
+		}
+	}
+}
+
+func usage() {
+	fmt.Fprintf(os.Stderr, `
+Usage: %s [install|start|stop|restart|uninstall] [-f filename] [-gbk] [-h hostname] [-p port]
+ 
+Options:
+`, os.Args[0])
+	fmt.Fprintf(os.Stderr, "  install\n\tinstall server\n")
+	fmt.Fprintf(os.Stderr, "  start\n\tstart server\n")
+	fmt.Fprintf(os.Stderr, "  stop\n\tstop server\n")
+	fmt.Fprintf(os.Stderr, "  restart\n\trestart server\n")
+	fmt.Fprintf(os.Stderr, "  uninstall\n\tuninstall server\n")
+	flag.PrintDefaults()
 }
